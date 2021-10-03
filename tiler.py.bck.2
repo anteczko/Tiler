@@ -1,0 +1,418 @@
+import subprocess
+import re
+import os
+import sys
+from operator import attrgetter
+import time
+import math
+
+class Window:
+    def __init__(self,data):
+        self.id=data[0]
+        self.workspace=data[1]
+        self.pid=data[2]
+        self.x=int(data[3])-BORDER
+        self.y=int(data[4])-BORDER_UP
+        self.width=int(data[5])
+        self.height=int(data[6])
+        self.name=""
+        for i in range(8,len(data)):
+            self.name+=data[i]+' '
+
+    def __str__(self):
+        return str(self.x)+' '+str(self.y)+' '+str(self.width)+' '+str(self.height)+' '+str(self.name)
+
+def bash(command):
+    process = subprocess.Popen(command.split(),stdout=subprocess.PIPE)
+    output, error=process.communicate()
+    return str(output,"utf-8").replace("\xe2\x80\x94","\n")
+
+def notification(data):
+    entire="notify-send -t 500 \""
+    try:
+        for v in data:
+            entire+=str(v)+'\n'
+    except TypeError:
+        entire+=str(data)
+    entire+="\""
+    os.system(entire)
+    return entire
+
+def printAll(data):
+    try:
+        for v in data:
+            print(v.workspace," ",v.x," ",v.y," ",v.width," ",v.height," ",v.name)
+    except TypeError:
+        v=data
+        print(v.workspace," ",v.x," ",v.y," ",v.width," ",v.height," ",v.name)
+
+def getActiveWindowID():
+    return bash("xprop -root _NET_ACTIVE_WINDOW").split(' ')[-1].replace('\n',"")
+
+def getActiveWorkspace():
+    workspaces=bash("wmctrl -d").split('\n')
+    secondName=-10
+    activeWorkspace=[]
+    for i in range( 0, len(workspaces)-1 ):
+        temp=workspaces[i].split(' ')
+        if(temp[2]=='*'):
+            activeWorkspace.append(i)
+            #secondName=int(temp[-1])+int(10)
+    for i in range( 0, len(workspaces)-1 ):
+        temp=workspaces[i].split(' ')
+        if(temp[-1]==secondName):
+            activeWorkspace.append(temp[0])
+    return activeWorkspace
+
+def isUp(w):
+    if(int(w.y+w.height)<=int(activeWindow.y)):
+        return True
+    return False
+
+def isDown(w):
+    if(int(w.y)>=int(activeWindow.y+activeWindow.height)):
+        return True
+    return False
+
+def isLeft(w):
+    if(int(w.x+w.width)<=int(activeWindow.x)):
+        return True
+    return False
+
+def isRight(w):
+    if(int(w.x)>=int(activeWindow.x+activeWindow.width)):
+        return True
+    return False
+
+def isOnSide(dir):
+    if(dir=="up"):
+        if(int(w.y+w.height)<=int(activeWindow.y)): return True
+    elif(dir=="down"):
+        if(int(w.y)>=int(activeWindow.y+activeWindow.height)): return True
+    elif(dir=="left"):
+        if(int(w.x+w.width)<=int(activeWindow.x)): return True
+    elif(dir=="right"):
+        if(int(w.x)>=int(activeWindow.x+activeWindow.width)): return True
+    return False
+
+
+def fitsVertically(w):
+    #if(int(w.x)>=int(activeWindow.x) and int(w.x+w.width)<=int(activeWindow.x+activeWindow.x)):
+    if(int(w.x)<=int(activeWindow.x+activeWindow.height) or int(w.x+w.height)>=int(activeWindow.x)):
+        return True
+    return False
+
+def fitsHorizontally(w):
+    #if(int(w.y)>=int(activeWindow.y) and int(w.y+w.height)<=int(activeWindow.y+activeWindow.height)):
+    if(int(w.y)<=int(activeWindow.y+activeWindow.height) or int(w.y+w.height)>=int(activeWindow.y)):
+        return True
+    return False
+
+def onScreen(w):
+    if( (int(w.workspace)==(activeWorkspace[0])) or (int(w.workspace)==(activeWorkspace[1]))):
+        return True
+    return False
+
+def onMonitor(w):
+    if( int(w.workspace)==(activeWorkspace[0]) ):
+        return True
+    return False
+
+def score(w,direction):
+    counter=0
+    if(direction=="up"):
+        counter+=abs( int(activeWindow.y)-int(w.y+w.height) )
+        counter+=abs( int(w.x)-int(activeWindow.x) )
+    elif(direction=="down"):
+        counter+=abs( int(w.y)-int(activeWindow.y+activeWindow.height) )
+        counter+=abs( int(w.x)-int(activeWindow.x) )
+    elif(direction=="left"):
+        counter+=abs( int(w.x)-int(activeWindow.x+activeWindow.width) )
+        counter+=abs( int(w.y)-int(activeWindow.y) )
+    elif(direction=="right"):
+        counter+=abs( int(w.x)-int(activeWindow.x+activeWindow.width) )
+        counter+=abs( int(w.y)-int(activeWindow.y) )
+    return counter
+
+def focus(id):
+    bash("xdotool windowactivate --sync "+id)
+    loadWindows()
+
+def resize(w,width,height):
+    try:
+        for v in w:
+            bash("xdotool windowsize --sync "+str(v.id)+" "+str(width)+" "+str(height))
+    except TypeError:
+        bash("xdotool windowsize --sync "+str(w.id)+" "+str(width)+" "+str(height))
+    loadWindows()
+
+def roundWindow(w):
+    try:
+        for v in w:
+            projX=v.x+v.width+BORDER
+            projY=v.y+v.height+29
+            # RODO swap '+29' value for something that can be calcualted
+            remX=math.remainder(projX,GRID)
+            remY=math.remainder(projY,GRID)
+            bash("xdotool windowsize --sync "+str(v.id)+" "+str(-remX+v.width)+" "+str(-remY+v.height+1))
+            v.width-=remX
+            v.height-=remY
+            return v
+    except TypeError:
+        v=w
+        projX=v.x+v.width+BORDER
+        projY=v.y+v.height+29
+        # RODO swap '+29' value for something that can be calcualted
+        remX=math.remainder(projX,GRID)
+        remY=math.remainder(projY,GRID)
+        bash("xdotool windowsize --sync "+str(v.id)+" "+str(-remX+v.width)+" "+str(-remY+v.height+1))
+        v.width-=remX
+        v.height-=remY
+        return v
+
+def round(number,round):
+    return int(number/round)*round
+
+def resizeD(w,width,height):
+    #bash("xdotool windowsize "+str(w.id)+" "+str(w.width+width)+" "+str(w.height+height))
+    try:
+        for v in w:
+            projX=v.x+v.width+BORDER
+            projY=v.y+v.height+29
+            # RODO swap '+29' value for something that can be calcualted
+            remX=math.remainder(projX,GRID)
+            remY=math.remainder(projY,GRID)
+            bash("xdotool windowsize --sync "+str(v.id)+" "+str(-remX+v.width+width)+" "+str(-remY+v.height+height+1))
+            # I added '+1' to height while adding remY, may cause problems later
+    except TypeError:
+        projX=w.x+w.width+BORDER
+        projY=w.y+w.height+29
+        # RODO swap '+29' value for something that can be calcualted
+        remX=math.remainder(projX,GRID)
+        remY=math.remainder(projY,GRID)
+        bash("xdotool windowsize --sync "+str(w.id)+" "+str(-remX+w.width+width)+" "+str(-remY+w.height+height+1))
+        # I added '+1' to height while adding remY, may cause problems later
+    loadWindows()
+
+def move(w,x,y):
+    bash("xdotool windowmove --sync "+str(w.id)+" "+str(x)+" "+str(y))
+    loadWindows()
+
+def moveD(w,x,y):
+    #bash("xdotool windowmove "+str(w.id)+" "+str(w.x+x)+" "+str(w.y+y))
+    #print("Moving by ",x," and ",y)
+    #printAll(w)
+    try:
+        for v in w:
+            projX=v.x
+            projY=v.y
+            # RODO swap '+29' value for something that can be calcualted
+            remX=math.remainder(projX,GRID)
+            remY=math.remainder(projY,GRID)
+            bash("xdotool windowmove --sync "+str(v.id)+" "+str(-remX+v.x+x)+" "+str(-remY+v.y+y))
+            # I added '+1' to height while adding remY, may cause problems later
+    except TypeError:
+        projX=w.x
+        projY=w.y
+        # RODO swap '+29' value for something that can be calcualted
+        remX=math.remainder(projX,GRID)
+        remY=math.remainder(projY,GRID)
+        bash("xdotool windowmove --sync "+str(w.id)+" "+str(-remX+w.x+x)+" "+str(-remY+w.y+y))
+    loadWindows()
+
+
+
+
+def resizeM(direction,windows,x,y):
+    toResize=[]
+    toResizeReverse=[]
+    toMove=[]
+    best=0
+    for w in windows:
+        if(direction=="left" or direction=="right"):
+            if(int(w.x+w.width)==int(activeWindow.x+activeWindow.width)):
+                toResize.append(w)
+            if(int(w.x)==int(activeWindow.x+activeWindow.width+BORDER)):
+                toMove.append(w)
+                toResizeReverse.append(w)
+    #print("Resizing:")
+    #printAll(toResize)
+    #print("Rreverse resizing:")
+    #printAll(toResizeReverse)
+    #printAll(toMove)
+    moveD(toMove,x,y)
+    resizeD(toResize,x,y)
+    resizeD(toResizeReverse,-x,-y)
+
+
+
+def moveFocus(direction,windows):
+    print(direction,":")
+    list=[]
+    best=0
+    for w in windows:
+        if( w!=activeWindow ):
+            if(direction=="up"):
+                if(isUp(w) and fitsVertically(w)):
+                    if(best==0): best=w
+                    if(score(w,direction)<score(best,direction)):
+                        best=w
+                    list.append(w)
+            elif(direction=="down"):
+                if(isDown(w) and fitsVertically(w)):
+                    if(best==0): best=w
+                    if(score(w,direction)<score(best,direction)):
+                        best=w
+                    list.append(w)
+            elif(direction=="left"):
+                if(isLeft(w) and fitsHorizontally(w)):
+                    if(best==0): best=w
+                    if(score(w,direction)<score(best,direction)):
+                        best=w
+                    list.append(w)
+            elif(direction=="right"):
+                if(isRight(w) and fitsHorizontally(w)):
+                    if(best==0): best=w
+                    if(score(w,direction)<score(best,direction)):
+                        best=w
+                    list.append(w)
+            elif(direction=="horizontal"):
+                if(fitsHorizontally(w)):
+                    list.append(w)
+            elif(direction=="vertical"):
+                if(fitsVertically(w)):
+                    list.append(w)
+    #printAll(list)
+    notification(list)
+    if(len(list)!=0): return best
+    return list
+
+def swapWindows(w):
+    temp=w
+    move(w,activeWindow.x,activeWindow.y)
+    resize(w,activeWindow.width,activeWindow.height)
+
+    move(activeWindow,temp.x,temp.y)
+    resize(activeWindow,temp.width,temp.height)
+
+
+def loadWindows():
+    global activeWindowID
+    global activeWorkspace
+    global activeWindow
+    activeWindowID=getActiveWindowID()
+    activeWindowID=bash("xdotool getactivewindow")
+    activeWorkspace=getActiveWorkspace()
+
+    allWindows=bash("wmctrl -lGp").split('\n')
+    splited=[]
+    global windows
+    windows=[]
+    j=0
+    for i in range(len(allWindows)-1):
+        allWindows[i]=(re.sub(' +', ' ',(allWindows[i].replace('\n',' ')))).strip()
+        splited.append(allWindows[i].split(' '))
+        if(splited[i][1]!="-1"):
+            windows.append(Window(splited[i]))
+            #print(windows[i].id)
+            if(int(windows[j].id,16) == int(activeWindowID)):
+                activeWindow=windows[j]
+            j+=1
+    return windows
+
+BORDER_UP=48
+BORDER=10
+#WindownMaker
+#BORDER_UP=47
+#BORDER=1
+#FVWM
+#BORDER_UP=23
+#BORDER=5
+#i3
+#BORDER_UP=0
+#BORDER=0
+
+GRID=120
+
+
+activeWindowID=getActiveWindowID()
+activeWindowID=bash("xdotool getactivewindow")
+activeWorkspace=getActiveWorkspace()
+
+
+allWindows=bash("wmctrl -lGp").split('\n')
+splited=[]
+windows=[]
+j=0
+for i in range(len(allWindows)-1):
+    allWindows[i]=(re.sub(' +', ' ',(allWindows[i].replace('\n',' ')))).strip()
+    splited.append(allWindows[i].split(' '))
+    if(splited[i][1]!="-1"):
+        windows.append(Window(splited[i]))
+        #print(windows[i].id)
+        if(int(windows[j].id,16) == int(activeWindowID)):
+            activeWindow=windows[j]
+        j+=1
+
+
+
+#printAll(windows)
+
+#move(activeWindow,activeWindow.x,activeWindow.y)
+#resize(activeWindow,activeWindow.width,activeWindow.height)
+
+#print(getActiveWindowID())
+#print(getActiveWorkspace())
+#print(activeWindow.name)
+
+#test("horizontal",windows)
+#test("vertical",windows)
+
+
+#id=focus2(str(sys.argv[1]),windows)
+#test(str(sys.argv[1]),windows)
+#bash("xdotool windowactivate "+id)
+
+if(len(sys.argv)==2):
+    if(sys.argv[1]=="up" or sys.argv[1]=="down" or sys.argv[1]=="left" or sys.argv[1]=="right"):
+        print("Arg spicified:",sys.argv[1])
+        id=moveFocus(str(sys.argv[1]),windows)
+        #print(notification(id))
+        #bash(("notify-send -t 1000 ",str(id[0]))
+        focus(id.id)
+        print("Focusing id: ",id.id," ",activeWindowID)
+    elif(sys.argv[1]=="dance"):
+        print("making dance!!!")
+        roundWindow(activeWindow)
+    elif(sys.argv[1]=="test"):
+        print("Test?!")
+        moveD(activeWindow,0,0)
+            
+
+if(len(sys.argv)==3):
+    direction=str(sys.argv[2])
+    if(sys.argv[1]=="swap"):
+        id=moveFocus(str(sys.argv[2]),windows)
+        swapWindows(id)
+    elif(sys.argv[1]=="resizeD" or sys.argv[1]=="moveD" or sys.argv[1]=="resizeM"):
+        modx=0
+        mody=0
+        if(direction=="up"): mody=-GRID
+        elif(direction=="down"): mody=GRID
+        elif(direction=="left"): modx=-GRID
+        elif(direction=="right"): modx=GRID
+
+        if(sys.argv[1]=="resizeD"):
+            resizeD(activeWindow,modx,mody)
+        elif(sys.argv[1]=="moveD"):
+            moveD(activeWindow,modx,mody)
+        elif(sys.argv[1]=="resizeM"):
+            resizeM(direction,windows,modx,mody)
+            loadWindows()
+            roundWindow(windows)
+
+else:
+   print("")
+
+printAll(windows)
+

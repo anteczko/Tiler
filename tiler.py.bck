@@ -1,0 +1,204 @@
+import subprocess
+import re
+import os
+import sys
+from operator import attrgetter
+
+class Window:
+    def __init__(self,data):
+        self.id=data[0]
+        self.workspace=data[1]
+        self.pid=data[2]
+        self.x=int(data[3])
+        self.y=int(data[4])
+        self.width=int(data[5])
+        self.height=int(data[6])
+        self.name=""
+        for i in range(8,len(data)):
+            self.name+=data[i]+' '
+
+def bash(command):
+    process = subprocess.Popen(command.split(),stdout=subprocess.PIPE)
+    output, error=process.communicate()
+    return str(output,"utf-8").replace("\xe2\x80\x94","\n")
+
+def printAll(data):
+    try:
+        for v in data:
+            print(v.workspace," ",v.y," ",v.x," ",v.name)
+    except TypeError:
+        v=data
+        print(v.workspace," ",v.y," ",v.x," ",v.name)
+
+def getActiveWindowID():
+    return bash("xprop -root _NET_ACTIVE_WINDOW").split(' ')[-1].replace('\n',"")
+
+def getActiveWorkspace():
+    workspaces=bash("wmctrl -d").split('\n')
+    secondName=-10
+    activeWorkspace=[]
+    for i in range( 0, len(workspaces)-1 ):
+        temp=workspaces[i].split(' ')
+        if(temp[2]=='*'):
+            activeWorkspace.append(int(i))
+            secondName=int(temp[-1])+int(10)
+
+    for i in range( 0, len(workspaces)-1 ):
+        temp=workspaces[i].split(' ')
+        if(int(temp[-1])==int(secondName)):
+            activeWorkspace.append(int(temp[0]))
+    return activeWorkspace
+
+def isUp(baseY,baseHeight,windowY,windowHeight):
+    if(int(windowY)+int(windowHeight/2)>int(baseY)+int(baseHeight/2)):
+        return True
+    return False
+
+def isDown(baseY,baseHeight,windowY,windowHeight):
+    return not isUp(baseY,baseHeight,windowY,windowHeight)
+
+def isRight(baseX,baseWidth,windowX,windowWidth):
+    if(int(windowX)+int(windowWidth/2)<int(baseX)+int(baseWidth/2)):
+        return True
+    return False
+
+def isLeft(baseX,baseWidth,windowX,windowWidth):
+    return not isRight(baseX,baseWidth,windowX,windowWidth)
+
+def fitsHorizontally(baseX,baseWidth,windowX,windowWidth):
+    if( int(windowX)<=int(baseX) and int(windowX+windowWidth)>=int(baseX+baseWidth) ):
+        return True
+    return False
+
+def fitsVertically(baseY,baseHeight,windowY,windowHeight):
+    if( int(windowY)<=int(baseY) and int(windowY+windowHeight)>=int(baseY+baseHeight) ):
+        return True
+    return False
+
+def onScreen(w):
+    if( int(w.workspace)==(activeWorkspace[0]) or int(w.workspace)==(activeWorkspace[1])):
+        return True
+    return False
+
+def test(direction,windows):
+    print(direction,":")
+    list=[]
+    for w in windows:
+        if( w!=activeWindow and (int(w.workspace)==(activeWorkspace[0]) or int(w.workspace)==(activeWorkspace[1])) ):
+            if(direction=="up"):
+                if(isUp(w.y,w.height,activeWindow.y,activeWindow.height)):
+                    list.append(w)
+            elif(direction=="down"):
+                if(isDown(w.y,w.height,activeWindow.y,activeWindow.height)):
+                    list.append(w)
+            elif(direction=="right"):
+                if(isRight(w.x,w.width,activeWindow.x,activeWindow.width)):
+                    list.append(w)
+            elif(direction=="left"):
+                if(isLeft(w.x,w.width,activeWindow.x,activeWindow.width)):
+                    list.append(w)
+            elif(direction=="horizontal"):
+                if(fitsHorizontally(w.x,w.width,activeWindow.x,activeWindow.width)):
+                    list.append(w)
+            elif(direction=="vertical"):
+                if(fitsVertically(w.y,w.height,activeWindow.y,activeWindow.height)):
+                    list.append(w)
+    printAll(list)
+
+def focus2(direction, windows):
+    ymod=1
+    xmod=1
+    list=[]
+    min=0
+
+    for w in windows:
+        if( onScreen(w) and w!=activeWindow):
+            if(direction=="up"):
+                if(fitsHorizontally(w.x,w.width,activeWindow.x,activeWindow.width)):
+                    if(isUp(w.y,w.height,activeWindow.y,activeWindow.height)):
+                        list.append(w)
+            elif(direction=="down"):
+                if(fitsHorizontally(w.x,w.width,activeWindow.x,activeWindow.width)):
+                    if(isDown(w.y,w.height,activeWindow.y,activeWindow.height)):
+                        list.append(w)
+            elif(direction=="right"):
+                if(fitsVertically(w.y,w.height,activeWindow.y,activeWindow.height)):
+                    if(isRight(w.x,w.width,activeWindow.x,activeWindow.width)):
+                        list.append(w)
+            elif(direction=="left"):
+                if(fitsVertically(w.y,w.height,activeWindow.y,activeWindow.height)):
+                    if(isLeft(w.x,w.width,activeWindow.x,activeWindow.width)):
+                        list.append(w)
+
+            if(len(list)==0):
+                #list.append(w)
+                min=w
+            else:
+                if(int(w.y*ymod)<int(list[0].y*ymod)):
+                    list.clear
+                    list.append(w)
+                    min=w
+                elif(int(w.y*ymod)==int(list[0].y*ymod)):
+                    if(int(w.x*xmod)<int(min.x*xmod)):
+                        min=w
+    printAll(min)
+    return min.id
+
+def focus(direction,windows):
+    if(direction=="up"): 
+        modx=0
+        mody=1
+    elif(direction=="down"): 
+        modx=0
+        mody=-1
+
+    max=[]
+    min=0
+    for w in windows:
+        if( int(w.workspace)==(activeWorkspace[0]) or int(w.workspace)==(activeWorkspace[1])):
+            if( int(w.y*mody)<int(activeWindow.y*mody) and int(w.x)>=int(activeWindow.x) and int(w.x)<=(int(activeWindow.x)+int(activeWindow.width)) ):
+            #if( int(w.x*modx)<int(activeWindow.x*modx) and int(w.y)>=int(activeWindow.y) and int(w.y)<=(int(activeWindow.y)+int(activeWindow.height)) ):
+                if(len(max)==0): 
+                    max.append(w)
+                    min=w
+                else:
+                    if(int(w.y)<int(max[0].y)):
+                        max.clear
+                        max.append(w)
+                        min=w
+                    elif(int(w.y)==int(max[0].y)):
+                        if(int(w.x)<int(min.x)):
+                            min=w
+            #max.append(w)
+    printAll(min)
+
+if(len(sys.argv)==1):
+    print("Please specify direction!!!")
+    sys.exit(-1)
+elif(len(sys.argv)==2):
+    activeWindowID=getActiveWindowID()
+    activeWorkspace=getActiveWorkspace()
+
+    allWindows=bash("wmctrl -lGp").split('\n')
+    splited=[]
+    windows=[]
+    for i in range(len(allWindows)-1):
+        allWindows[i]=(re.sub(' +', ' ',(allWindows[i].replace('\n',' ')))).strip()
+        splited.append(allWindows[i].split(' '))
+        windows.append(Window(splited[i]))
+        if(int(windows[i].id,16) == int(activeWindowID,16)):
+            activeWindow=windows[i]
+
+
+
+    #printAll(windows)
+    #print(getActiveWindowID())
+    #print(getActiveWorkspace())
+    #print(activeWindow.name)
+
+    #test("horizontal",windows)
+    #test("vertical",windows)
+
+
+    id=focus2(str(sys.argv[0]),windows)
+    bash("xdotool windowactivate "+id)

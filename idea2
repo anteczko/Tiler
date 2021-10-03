@@ -1,0 +1,45 @@
+tiler wm's functions:
+-handle windows
+ -manage single window
+  -move window
+  -resize window
+  -swap widnows
+ -manage tiled window (changing one tiled window size will change size of surrounding windows too)
+ -use pre-defined layout to position windows
+-handle workspaces
+ -switch workspaces
+ -move program to other workspace
+ -moving program over screen border switches to different workspace
+ -trying to switch to <dir> over screen border, focuses on window on different workspace
+-program launcher [rofi]
+-panel [conky]
+-script file that is launched on start
+-keyboard shortcuts for programs
+
+windows types:
+-tiled
+ -position snapped to grid
+ -size snapped to grid
+-child
+ -is inside of tiled window
+ -moving it, snaps them around different windows
+ -it's size is just a little smaller than parent's, and it sits atop of it's parent
+-floating
+ -not-tiled position
+ -not tield size
+
+
+ideas:
+-predefined layouts, that will sort and position windows on screen/workspace
+ -layout ideas:
+  -grid
+  -equaly vertical/horizontal
+  -fibonaci spiral
+  -emulated tabs
+  -master + children
+ -can accomodate range of windows not fixed amount
+ -you can cycle windows
+ -can be defined by user via some file
+  -layouts with fixed windows number
+  -layouts with n number of windows
+ -save current layout

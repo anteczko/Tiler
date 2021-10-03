@@ -1,0 +1,118 @@
+Tiler, one script that allows mouseless workflow in every window manager. It will handle changing active window focus using keyboard and tiling windows.
+
+Functions:
+-move focus
+-move windows
+-swap windows
+-resize windows
+-tile windows
+
+TODO:
++get 'linked' workspaces 
++get list of windows on workspaces
++get focused window
++get ID of window <direction>
++move focus <direction>
++swap windows <direction>
++move windows <direction>
++move/resize windows, while snapping to grid
+-resize tiled window
+ -add option to revert back all windows in case resizing can't be executed
+  -make backups of all windows that will be changed
+  -make resizeWindowDir() function return widnow or False in case of problem
+  -if any of windows will cause problem, revert all to previous states
+ +get list of windows that are 'sticking' to <dir> side of window
+
+
+Arguments
+<direction> - moves focus in that direction
+swap <dir> - swaps current window with window at specified direciton
+move <dir> - moves window in direction
+
+Ideas:
+-move focus
+-swap windows
+-move windows
+-move workspaces
+-resize window
+-resize tiled window
+-inflate window (widnow will become as bit as possible but the way to not obstruckt windows around)
+-moving floating windows atop of already tiled ones (put program window 'into' tiled windows)
+-defined layouts
+-save/load set of programs
+-
+
+
+Workflow:
+<single window opening>
+-empty workspace
+-open program
+-click button -> program detects only program on that workspace -> maximizes window
+<second widnow>
+-open program
+-program is opened atop of already existing (and tield window program)
+-mod+arrow to split window underneath and tile second window on <dir> side
+<third widnow>
+-open program
+-you can move third 'floating' widnow around mod+<dir>, window sits atop of and jumps aroudn like focus of widnow, but it also reszies to be little smaller that widnow underneath
+-mod+arrow to split window underneath and tile second window on <dir> side
+<holes filling>
+-if there is more than one window and on there is a empty space
+-
+
+Functions:
++move window
++swap windows
++resize window
++resize tiled window
+-move tiled window
+-move focus
+ -different focus modes:
+  -
+
+Ideas:
+-make all windows snap to grid, their x0,y0 point and also while resizing
+ -GRID variable must be common denominator of screen height and width
+
+Controls:
+Tiled/Floating
+mod+<dir> - change focus
+mod+shift+<dir> - move/swap window
+mod+control+<dir> - resize window
+
+
+
+Windows types:
+ -floating
+  -they aren't aligned nor have parent
+ -tiled
+  -their position and size is standarized
+   -except terminals widnows, they are retarded
+  -they can't overlap
+   -TODO add multi resize
+   -TODO add checking if widnows will not overlapp after moving/resizing
+ -child
+  -special kind of floating window
+  -sits atop of already tiled windows
+  -it's size mimics size of parent widnow but it's a bit smaller to show it's dependence to it's parent window
+  -mod+<dir> moves child around already tiled windows
+  -mod+shift+<dir> places child window on place of parent one, by splitting paren't place in half dependednt on <dir>
+
+V2TODO:
++make data structure with id of window
++add option to load all widnows
++add option to update data about winow by it's id
++add calibrating variables (size of window decorations)
++add temp functions for moving and resizing windows
++added resize function
++added moveWindow function
++add focus changing
++add supporting functions for focusing etc.
++add swaping widnows
+ +for tiled windows
++add conditions for resizing windows
++add resizing tiled windows
++add calibration option
+-add moving tiled windows
+-add blacklist for windows (panels etc.)
+-add workspaces support

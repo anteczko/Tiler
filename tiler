@@ -1,0 +1,36 @@
+import subprocess
+import re
+
+class Window:
+    def __init__(self,data):
+        self.id=data[0]
+        self.workspace=data[1]
+        self.pid=data[2]
+        self.x=data[3]
+        self.y=data[4]
+        self.width=data[5]
+        self.height=data[6]
+        self.name=""
+        for i in range(8,len(data)):
+            self.name+=data[i]+' '
+
+def bash(command):
+    process = subprocess.Popen(command.split(),stdout=subprocess.PIPE)
+    output, error=process.communicate()
+    return str(output,"utf-8").replace("\xe2\x80\x94","\n")
+
+
+allWindows=bash("wmctrl -lGp").split('\n')
+splited=[]
+windows=[]
+for i in range(len(allWindows)-1):
+    allWindows[i]=(re.sub(' +', ' ',(allWindows[i].replace('\n',' ')))).strip()
+    splited.append(allWindows[i].split(' '))
+    windows.append(Window(splited[i]))
+    print(windows[i].name)
+
+sorted=sorted(windows,key=lambda x:x.y)
+
+print(sorted[0].name)
+
+workspaces=bash("wmctrl -d").split(' ')
